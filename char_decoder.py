@@ -23,8 +23,14 @@ class CharDecoder(nn.Module):
         ### Hint: - Use target_vocab.char2id to access the character vocabulary for the target language.
         ###       - Set the padding_idx argument of the embedding matrix.
         ###       - Create a new Embedding layer. Do not reuse embeddings created in Part 1 of this assignment.
+        super(CharDecoder, self).__init__()
+        self.target_vocab = target_vocab
+        self.vocab_size = len(self.target_vocab.char2id)
+        padding_idx = self.target_vocab.char2id['<pad>']
         
-
+        self.decoderCharEmb = nn.Embedding(num_embeddings=self.vocab_size, embedding_dim=char_embedding_size, padding_idx=padding_idx)
+        self.charDecoder = nn.LSTM(input_size=char_embedding_size, hidden_size=hidden_size)
+        self.char_output_projection = nn.Linear(in_features=hidden_size, out_features=len(target_vocab.char2id), bias=True)
         ### END YOUR CODE
 
 
@@ -40,9 +46,12 @@ class CharDecoder(nn.Module):
         """
         ### YOUR CODE HERE for part 2b
         ### TODO - Implement the forward pass of the character decoder.
-        
-        
+
+        input_embeddings = self.decoderCharEmb(input)
+        output, dec_hidden = self.charDecoder(input_embeddings, dec_hidden)
+        logits = self.char_output_projection(output)
         ### END YOUR CODE 
+        return  logits, dec_hidden
 
 
     def train_forward(self, char_sequence, dec_hidden=None):
@@ -58,8 +67,13 @@ class CharDecoder(nn.Module):
         ###
         ### Hint: - Make sure padding characters do not contribute to the cross-entropy loss.
         ###       - char_sequence corresponds to the sequence x_1 ... x_{n+1} from the handout (e.g., <START>,m,u,s,i,c,<END>).
+        input_sequence = char_sequence[:-1]
+        target_sequence = char_sequence[1:]
+        logits, dec_hidden = self.forward(input_sequence, dec_hidden=dec_hidden)        
+        loss = nn.CrossEntropyLoss(ignore_index=self.target_vocab.char2id['<pad>'], reduction='sum')
+        batch_loss = loss(logits.contiguous().view(-1, self.vocab_size), target_sequence.contiguous().view(-1))
 
-
+        return batch_loss
         ### END YOUR CODE
 
     def decode_greedy(self, initialStates, device, max_length=21):
@@ -80,6 +94,33 @@ class CharDecoder(nn.Module):
         ###      - We use curly brackets as start-of-word and end-of-word characters. That is, use the character '{' for <START> and '}' for <END>.
         ###        Their indices are self.target_vocab.start_of_word and self.target_vocab.end_of_word, respectively.
         
-        
-        ### END YOUR CODE
+        start_idx = self.target_vocab.start_of_word
+        end_idx = self.target_vocab.end_of_word
+        batch_size = initialStates[0].shape[1]
+        current_char = torch.tensor([[start_idx] * batch_size], device=device) 
+        dec_hidden = initialStates
+        outputs = []
+        decodedWords = [] 
+        for item in range(max_length):
+            logits, dec_hidden = self.forward(current_char, dec_hidden)
+            proba = nn.functional.softmax(logits, dim=2)
+            current_char = proba.argmax(dim=2)
+            outputs.append(current_char)
 
+        untruncated_outputs = torch.cat(outputs).t().tolist()
+        for output in untruncated_outputs:
+            word = ""
+            for idx in output:
+                if idx == end_idx:
+                    break
+                word += self.target_vocab.id2char[idx]
+
+            decodedWords.append(word)
+
+        return decodedWords
+
+
+
+        
+
+        ### END YOUR CODE

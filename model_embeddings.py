@@ -64,7 +64,7 @@ class ModelEmbeddings(nn.Module):
         char_embed_size = self.embeddings.embedding_dim
         embed_dim = self.cnn.covn1d.out_channels
 
-        output_embed = self.embeddings(input_tensor) # shape: (sentence_length, batch_size, max_word_length, e_char)
+        output_embed = self.embeddings(input_tensor, dtype=torch.cuda.LongTensor) # shape: (sentence_length, batch_size, max_word_length, e_char)
         output_embed_permute = output_embed.permute(0,1,3,2) # shape: (sentence_length, batch_size, e_char, max_word_length)
         output_embed_reshape = output_embed_permute.view(-1, char_embed_size, max_word_length)
         

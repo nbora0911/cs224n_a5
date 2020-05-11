@@ -47,7 +47,7 @@ class CharDecoder(nn.Module):
         ### YOUR CODE HERE for part 2b
         ### TODO - Implement the forward pass of the character decoder.
 
-        input_embeddings = self.decoderCharEmb(input)
+        input_embeddings = self.decoderCharEmb(input.type(dtype=torch.cuda.LongTensor))
         output, dec_hidden = self.charDecoder(input_embeddings, dec_hidden)
         logits = self.char_output_projection(output)
         ### END YOUR CODE 
@@ -67,8 +67,8 @@ class CharDecoder(nn.Module):
         ###
         ### Hint: - Make sure padding characters do not contribute to the cross-entropy loss.
         ###       - char_sequence corresponds to the sequence x_1 ... x_{n+1} from the handout (e.g., <START>,m,u,s,i,c,<END>).
-        input_sequence = char_sequence[:-1]
-        target_sequence = char_sequence[1:]
+        input_sequence = char_sequence[:-1].type(dtype=torch.cuda.LongTensor)
+        target_sequence = char_sequence[1:].type(dtype=torch.cuda.LongTensor)
         logits, dec_hidden = self.forward(input_sequence, dec_hidden=dec_hidden)        
         loss = nn.CrossEntropyLoss(ignore_index=self.target_vocab.char2id['<pad>'], reduction='sum')
         batch_loss = loss(logits.contiguous().view(-1, self.vocab_size), target_sequence.contiguous().view(-1))
